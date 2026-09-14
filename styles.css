@@ -48,6 +48,13 @@ a {
   gap: 1.5rem;
 }
 
+nav,
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
 .header-inner {
   min-height: 4.5rem;
 }
@@ -244,6 +251,11 @@ footer {
     flex-direction: column;
     justify-content: center;
     gap: 0.5rem;
+  }
+
+  nav,
+  .footer-links {
+    gap: 0.5rem 1rem;
   }
 
   .header-inner {

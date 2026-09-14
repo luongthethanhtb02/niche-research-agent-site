@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Reviewer-facing technical overview of the implemented Niche Research Agent workflow and safeguards.">
+    <title>Feature Overview — Niche Research Agent</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2317354d'/%3E%3Cpath d='M18 18h9l10 16V18h9v28h-9L27 30v16h-9z' fill='%23fff'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="index.html" aria-label="Niche Research Agent home">
+          <span class="brand-mark" aria-hidden="true">N</span>
+          <span>Niche Research Agent</span>
+        </a>
+        <nav aria-label="Primary navigation">
+          <a href="index.html">Home</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="shell policy">
+      <p class="eyebrow">Reviewer documentation</p>
+      <h1>Feature Overview</h1>
+      <p class="lead">This page describes functionality implemented in the Niche Research Agent codebase. It is technical documentation, not a live dashboard or public application interface.</p>
+
+      <section>
+        <h2>Current Implementation Status</h2>
+        <p>The acquisition, normalization, eligibility, orchestration, metrics, and sampling-quality modules have been exercised with deterministic fake or recorded providers. The official YouTube Data API adapters are implemented, but no live sampling pilot has been run. Live network access remains blocked unless the fail-closed compliance gate receives the required authorized configuration.</p>
+      </section>
+
+      <section>
+        <h2>Implemented Workflow</h2>
+        <p>The implemented workflow is:</p>
+        <ol>
+          <li>A versioned structured niche definition provides the niche description, included and excluded topics, seed queries, language, market, analysis window, baseline window, and sampling limits.</li>
+          <li>A deterministic query planner creates categorized, deduplicated queries without using a live language model.</li>
+          <li>The official provider adapter maps video discovery to YouTube Data API <code>search.list</code>.</li>
+          <li>Discovered video identifiers are deduplicated with query and page provenance preserved, then hydrated in bounded batches through <code>videos.list</code>.</li>
+          <li>Associated public channel records are deduplicated and hydrated in bounded batches through <code>channels.list</code>.</li>
+          <li>Eligible relevant channels may be expanded through bounded pages of the public uploads playlist using <code>playlistItems.list</code>. Each discovered upload is separately hydrated and evaluated.</li>
+          <li>Provider records are normalized into versioned canonical video and channel records without converting unavailable values into zero.</li>
+          <li>Videos receive deterministic format, niche-relevance, and dataset-eligibility decisions. Only confirmed long-form, relevant, in-window records with required metadata enter the MARKET dataset.</li>
+          <li>Historical, relevant, confirmed long-form records are independently evaluated for the BASELINE dataset. MARKET and BASELINE records are isolated and deduplicated.</li>
+          <li>The metrics engine calculates observed volume, distribution, channel concentration, views-per-day, views-to-subscriber ratios when denominators are available, breakout indicators, new- and small-channel indicators, breadth, and data-quality metadata.</li>
+          <li>The sampling-quality evaluator calculates query diversity and yield, overlap, eligibility funnel, channel diversity, expansion contribution and contamination, saturation evidence, profile stability, sensitivity, bias indicators, warnings, and deterministic sampling confidence.</li>
+          <li>Deterministic acquisition, canonical-record, dataset, metric, sampling-quality, warning, and provenance artifacts can be written for audit and review.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Data-Access Safeguards</h2>
+        <ul>
+          <li>The live provider implementation is limited to public data requested through official YouTube Data API endpoints. Offline tests use fake or recorded transports rather than external collection.</li>
+          <li>The project does not request OAuth access or private YouTube user data.</li>
+          <li>The project contains no scraping, browser-based YouTube collection, or competitor-video download path.</li>
+          <li>The ComplianceGate defaults to not configured and rejects network authorization unless an allowed state and approval reference are both present.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Request and Processing Controls</h2>
+        <ul>
+          <li>Search, batching, pagination, channel expansion, total physical requests, quota consumption, and retry attempts are bounded by explicit configuration.</li>
+          <li>Logical search-page progress is tracked separately from physical provider attempts. A retry does not consume another logical page slot, but it consumes another physical request and applicable quota unit.</li>
+          <li>Provider responses pass through raw snapshot persistence before normalization. Request provenance, discovery provenance, missing records, exclusions, warnings, and partial failures remain explicit.</li>
+          <li>Raw provider responses are written as content-addressed audit records to preserve provenance and reproducibility during the permitted retention period. Cache entries have configured fresh, refresh-needed, and expired states, plus invalidation and expired-entry purge operations.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Classification and Dataset Safeguards</h2>
+        <ul>
+          <li>Format classification supports LONG_FORM, SHORT, and UNKNOWN. Missing, malformed, low-confidence, or conflicting evidence can remain UNKNOWN instead of being forced into the long-form dataset.</li>
+          <li>Niche relevance supports RELEVANT, NOT_RELEVANT, and AMBIGUOUS. AMBIGUOUS records do not enter MARKET or BASELINE datasets and can be routed to an independent review boundary.</li>
+          <li>Channel expansion does not assume that every upload from a relevant channel is relevant; every upload is classified at video level.</li>
+          <li>Duplicate discoveries preserve their discovery history while contributing only one record to a final dataset.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Observed Metrics and Sampling Boundaries</h2>
+        <p>Observed view metrics use current lifetime view counts on eligible videos published within the configured MARKET window. They are not represented as views generated during that window, a total YouTube market estimate, or a market-coverage percentage.</p>
+        <p>The metrics engine does not create a final niche score or PASS, WATCHLIST, or REJECT recommendation. Sampling confidence evaluates the quality of the collected sample, not whether the niche is attractive.</p>
+      </section>
+
+      <section>
+        <h2>Retention and Current Limitations</h2>
+        <p>Implemented cache controls support time-based refresh, expiry, invalidation, and purging of expired cache entries. Raw provider-response persistence exists for provenance and auditability, but the end-to-end retention and deletion lifecycle for those persisted records has not yet been validated for live operation. Live operation will remain blocked until retention, refresh, and deletion behavior is aligned with applicable YouTube API Services policies and any required permissions or approvals.</p>
+        <p>No live pilot, live API result, production metric, or compliance approval is presented on this page.</p>
+      </section>
+
+      <section>
+        <h2>Contact</h2>
+        <p>Project owner: Lương Thế Thành</p>
+        <p>Email: luongthethanhtb2002@gmail.com</p>
+      </section>
+    </main>
+
+    <footer>
+      <div class="shell footer-inner">
+        <span>Niche Research Agent</span>
+        <div class="footer-links">
+          <a href="index.html">Project Overview</a>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="terms.html">Terms</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
